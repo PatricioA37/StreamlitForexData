@@ -1,0 +1,2 @@
+# StreamlitForexData
+Visualización de activos 
