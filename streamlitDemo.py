@@ -1,38 +1,61 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import os
+
+# Definir los pares de divisas
+currency_pairs = {
+    'EUR/USD': 'EURUSD=X',
+    'GBP/USD': 'GBPUSD=X',
+    'USD/JPY': 'USDJPY=X',
+    'USD/CHF': 'USDCHF=X',
+    'AUD/USD': 'AUDUSD=X'
+}
 
 # Configurar la página para hacerla más amigable en móviles
-st.set_page_config(page_title="Precio del Oro", layout="wide")
+st.set_page_config(page_title="Precio de Divisas", layout="wide")
 
-# Título de la aplicación
-st.title("Visualización de Series Temporales: Precios del Oro")
+# Crear una lista desplegable para seleccionar la divisa
+selected_currency = st.selectbox("Selecciona un par de divisas:", list(currency_pairs.keys()))
 
-# Cargar el archivo CSV
-@st.cache
-def load_data():
-    data = pd.read_csv('gold_price_history.csv', parse_dates=['Date'])
-    data.set_index('Date', inplace=True)
-    return data
+# Crear una lista desplegable para seleccionar el tipo de datos a visualizar
+data_type = st.selectbox("Selecciona el tipo de datos:", ["Datos Originales", "Datos con Indicadores"])
 
-# Cargar los datos
-data = load_data()
+# Generar el nombre del archivo CSV correspondiente basado en la selección
+if data_type == "Datos Originales":
+    csv_filename = f"{currency_pairs[selected_currency].replace('=', '_').lower()}.csv"
+else:
+    csv_filename = f"{currency_pairs[selected_currency].replace('=', '_').lower()}_with_indicators.csv"
 
-# Mostrar los datos cargados
-st.write("Datos cargados (muestra de 5 filas):")
-st.dataframe(data.head())
+# Verificar si el archivo CSV existe
+if os.path.exists(csv_filename):
+    # Cargar los datos del archivo CSV
+    data = pd.read_csv(csv_filename)
 
-# Crear un gráfico interactivo con Plotly
-st.subheader("Gráfico de Serie Temporal del Precio del Oro (Cierre Ajustado)")
-fig = px.line(data, x=data.index, y='Adj Close', title='Precio de Cierre Ajustado del Oro')
-fig.update_layout(
-    xaxis_title="Fecha",
-    yaxis_title="Precio de Cierre Ajustado",
-    margin=dict(l=0, r=0, t=50, b=50),  # Márgenes optimizados para dispositivos móviles
-    height=600  # Altura del gráfico
-)
-st.plotly_chart(fig, use_container_width=True)
+    # Mostrar los datos en la aplicación
+    st.write(f"Datos para {selected_currency} ({data_type}):")
+    st.dataframe(data)
 
-# Opción para descargar los datos filtrados
-csv_data = data.to_csv().encode('utf-8')
-st.download_button("Descargar CSV", csv_data, 'gold_price_history.csv', "text/csv")
+    # Ejemplo de visualización con Plotly (ejemplo para 'Close')
+    fig = px.line(data, x=data.index, y='Close', title=f'Precio de Cierre de {selected_currency}')
+    st.plotly_chart(fig)
+
+    # Si se seleccionaron indicadores, agregar gráficos para los indicadores
+    if data_type == "Datos con Indicadores":
+        # Graficar RSI
+        if 'RSI' in data.columns:
+            fig_rsi = px.line(data, x=data.index, y='RSI', title=f'RSI de {selected_currency}')
+            st.plotly_chart(fig_rsi)
+
+        # Graficar MACD
+        if 'MACD' in data.columns:
+            fig_macd = px.line(data, x=data.index, y='MACD', title=f'MACD de {selected_currency}')
+            st.plotly_chart(fig_macd)
+
+        # Graficar Bollinger Bands
+        if 'Upper_BB' in data.columns and 'Lower_BB' in data.columns:
+            fig_bb = px.line(data, x=data.index, y=['Upper_BB', 'Lower_BB'], title=f'Bollinger Bands de {selected_currency}')
+            st.plotly_chart(fig_bb)
+
+else:
+    st.error(f"No se encontró el archivo CSV para {selected_currency}. Asegúrate de que los datos se hayan descargado correctamente.")
